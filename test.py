@@ -1,1 +1,3 @@
 print('hi')
+
+priny('more')
