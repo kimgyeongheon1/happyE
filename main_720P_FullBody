@@ -1,45 +1,54 @@
-from cvzone.PoseModule import PoseDetector
-from pyfirmata import Arduino, SERVO, PWM, OUTPUT, util
+from cvzone.PoseModule import PoseDetector # PoseDetector 모듈에서 cvz.pose~ 불러옴
+from pyfirmata import Arduino, SERVO, PWM, OUTPUT, util # import는 전부 다 쓰는거고, from은 필요한거만 꺼내서 쓰는 거!
+# pip install cvzone opencv-python
+# pip install pyfirmata
 
-import cv2
-import cvzone
-import math
-import time
-import RPi.GPIO as GPIO
+import cv2 # pip install opencv-python
+import cvzone # pip install cvzone opencv-python 이거 설치하면 같이 됨
+import math # 이거랑
+import time # 이거는 패키지 없어도 됨
+import RPi.GPIO as GPIO # sudo apt install python3-rpi.gpio 이거는 라즈베리파이에서만 설치할 수 있다.
 
 class Motor:
     def __init__(self, board, ena_pin, in1_pin, in2_pin):
-        self.ena = board.get_pin(f'd:{ena_pin}:p')
-        self.in1 = board.get_pin(f'd:{in1_pin}:o')
-        self.in2 = board.get_pin(f'd:{in2_pin}:o')
+        self.ena = board.get_pin(f'd:{ena_pin}:p') # 속도 제어용 pwm 핀
+        self.in1 = board.get_pin(f'd:{in1_pin}:o') # 모터의 방향 제어 핀 1
+        self.in2 = board.get_pin(f'd:{in2_pin}:o') # 모터의 방향 제어 핀 2
         
-    def forward(self, speed):
-        self.in1.write(1)
-        self.in2.write(0)
-        self.ena.write(speed)
+    def forward(self, speed): # 전진 
+        self.in1.write(1) # in1 핀을 HIGH로 설정 (모터 전진 방향 설정)
+        self.in2.write(0) # in2 핀을 LOW로 설정 (모터 전진 방향 설정)
+        self.ena.write(speed) # 모터 속도를 설정 (PWM 신호)
         
-    def backward(self, speed):
-        self.in1.write(0)
-        self.in2.write(1)
-        self.ena.write(speed)
+    def backward(self, speed): # 후진
+        self.in1.write(0) # in1 핀을 LOW로 설정 (모터 후진 방향 설정)
+        self.in2.write(1) # in2 핀을 HIGH로 설정 (모터 후진 방향 설정)
+        self.ena.write(speed) # 모터 속도를 설정 (PWM 신호)
 
-    def stop(self):
-        self.in1.write(0)
-        self.in2.write(0)
-        self.ena.write(0)
+    def stop(self): # 정지
+        self.in1.write(0) # in1 핀을 LOW로 설정 (모터 멈춤)
+        self.in2.write(0) # in2 핀을 LOW로 설정 (모터 멈춤)
+        self.ena.write(0) # 모터 속도를 0으로 설정 (모터 멈춤)
 
 # OpenCV / Board Settings
-cap = cv2.VideoCapture('/dev/video0')
-board = Arduino('/dev/ttyACM0')
-GPIO.setmode(GPIO.BCM)
+cap = cv2.VideoCapture('/dev/video0') # 비디오 캡처 객체 생성, 라즈베리 파이의 기본 카메라 디바이스
+board = Arduino('/dev/ttyACM0') # 아두이노와 직렬 통신 연결, /dev/ttyACM0 포트 사용
+GPIO.setmode(GPIO.BCM) # GPIO 핀 모드 설정, BCM 모드 사용
+# BCM 모드: Broadcom SOC의 채널 번호를 사용 (예: GPIO 17, GPIO 18 등)
+# BOARD 모드: Raspberry Pi 보드 상에서 실제 물리적 핀 번호를 사용 (예: 핀 11, 핀 12 등)
 
-cap.set(cv2.CAP_PROP_FPS, 20)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+cap.set(cv2.CAP_PROP_FPS, 20) # 카메라의 FPS를 20으로 설정
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280) # 카메라의 해상도 너비 설정
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720) # 카메라의 해상도 높이 설정
 
 detector = PoseDetector(staticMode=False, modelComplexity=0, smoothLandmarks=True, enableSegmentation=False, smoothSegmentation=True, detectionCon=0.5, trackCon=0.5)
+# PoseDetector 초기화: 사람의 자세 인식 및 추적을 위한 매개변수 설정
 it = util.Iterator(board)
+# Iterator는 board 객체와 관련된 반복 작업을 처리하는 객체를 생성하는 역할
+# board 객체는 Iterator가 반복할 수 있는 데이터나 핀 상태와 같은 정보를 포함하고 있다.
 
+# 모터 핀 번호 설정 (ena는 pwm 제어 핀)
+# 모터 1 ~ 4 까지 있다. => 4륜 구동!
 motor1_ena = 3
 motor1_in1 = 2
 motor1_in2 = 4
@@ -56,79 +65,84 @@ motor4_ena = 11
 motor4_in1 = 12
 motor4_in2 = 13
 
-GPIO.setup(17, GPIO.OUT) # Red
-GPIO.setup(27, GPIO.OUT) # Yellow
-GPIO.setup(22, GPIO.OUT) # Green
-GPIO.setup(16, GPIO.OUT) # Buzzer
+GPIO.setup(17, GPIO.OUT) # Red LED 출력 설정 -> 카메라 동작하고 있다는 뜻
+GPIO.setup(27, GPIO.OUT) # Yellow LED 출력 설정 -> 이건 왜 있는 거지???
+GPIO.setup(22, GPIO.OUT) # Green LED 출력 설정 -> 사람이 감지되고 있다는 뜻
+GPIO.setup(16, GPIO.OUT) # Buzzer 출력 설정 -> 아두이노 시작됐다는 것을 알려줌
 
 # Pixel Values Settings
-pTime = 0
+pTime = 0 # 이전 시간 저장 변수, FPS 계산에 사용
 
-TURN_MIN_VALUE = 30
-TURN_MAX_VALUE = 160
+TURN_MIN_VALUE = 30 # 회전 방향 값 최소
+TURN_MAX_VALUE = 160 # 최대
 
-DISTANCE_MIN_VALUE = 30
-DISTANCE_MAX_VALUE = 120
+DISTANCE_MIN_VALUE = 30 # 거리 값 최소
+DISTANCE_MAX_VALUE = 120 # 최대
 
-PWM_SCALE = [0.60, 1.00]
+PWM_SCALE = [0.60, 1.00] # PWM 출력 범위
 
-motor1 = Motor(board, motor1_ena, motor1_in1, motor1_in2)
-motor2 = Motor(board, motor2_ena, motor2_in1, motor2_in2)
-motor3 = Motor(board, motor3_ena, motor3_in1, motor3_in2)
-motor4 = Motor(board, motor4_ena, motor4_in1, motor4_in2)
+motor1 = Motor(board, motor1_ena, motor1_in1, motor1_in2) # 모터 1 인스턴스 생성
+motor2 = Motor(board, motor2_ena, motor2_in1, motor2_in2) # 모터 2 인스턴스 생성
+motor3 = Motor(board, motor3_ena, motor3_in1, motor3_in2) # 모터 3 인스턴스 생성
+motor4 = Motor(board, motor4_ena, motor4_in1, motor4_in2) # 모터 4 인스턴스 생성
 
 def Buzzer():
-    GPIO.output(16, GPIO.HIGH)
-    time.sleep(0.5)
-    GPIO.output(16, GPIO.LOW)
-    time.sleep(0.2)
+    GPIO.output(16, GPIO.HIGH) # Buzzer 켜기
+    time.sleep(0.5) # 0.5초 대기
+    GPIO.output(16, GPIO.LOW) # Buzzer 끄기
+    time.sleep(0.2) # 0.2초 대기
     GPIO.output(16, GPIO.HIGH)
     time.sleep(0.5)
     GPIO.output(16, GPIO.LOW)
 
-def RangeCalc(In, in_max, in_min, out_max, out_min):
+def RangeCalc(In, in_max, in_min, out_max, out_min): # PWM값을 계산해주는 함수
     # mapped_value = (x_clipped - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
-    x = min(max(In, in_min), in_max)
-    mapped_value = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
-
-    mapped_value = round(mapped_value, 2)
+    x = min(max(In, in_min), in_max) # 입력 값을 최소/최대 범위로 클리핑
+    mapped_value = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min 
+    # 입력 값에 따라 출력 값 범위 내 매핑
+    mapped_value = round(mapped_value, 2) # 소수점 둘째 자리까지 반올림하여 반환
     return mapped_value
 
-it.start()
-Buzzer()
+it.start() # 아두이노의 보드 iterator 시작, 아두이노 핀 값을 읽기 위한 준비
+Buzzer() # Buzzer 함수 호출 -> 시작했다는 뜻!
 
-while True:
+while True: # 무한 반복
     
-    GPIO.output(17, GPIO.HIGH)
+    GPIO.output(17, GPIO.HIGH) # Red LED 켜기
 
+    # FPS 계산
     cTime = time.time()
     fps = 1 / (cTime - pTime)
     pTime = cTime
+    
+    # 카메라에서 영상을 읽어오기
+    success, img = cap.read() # 영상 읽기를 성공했는지 확인, 읽어온 프레임 저장 
+    height, width, _ = img.shape # 높이, 너비, __(채널 수)
+    img_center_x = width // 2 # 영상 중심 x좌표 계산
+    img_center_y = height // 2 # 영상 중심 y좌표 계산
+    img_center = [img_center_x, img_center_y] # 영상 중심 좌표 설정
 
-    success, img = cap.read()
-    height, width, _ = img.shape
-    img_center_x = width // 2
-    img_center_y = height // 2
-    img_center = [img_center_x, img_center_y]
+    img = detector.findPose(img) # 자세를 감지해서 img에 저장
 
-    img = detector.findPose(img)
+    imList, bboxs = detector.findPosition(img, draw=True, bboxWithHands=False) # 사람의 위치와 경계 상자 획득
+    # imList : 신체 주요 포인트 좌표, bboxs : 감지된 사람의 경계 상자 정보, draw=True : 시각적으로 표시, bboxWithHands=False 손은 경계상자에 포함
 
-    imList, bboxs = detector.findPosition(img, draw=True, bboxWithHands=False)
-
-    if bboxs:
+    if bboxs: # bboxs가 비어있지 않으면 -> 경계 상자가 감지되면
         
-        GPIO.output(22, GPIO.HIGH)
+        GPIO.output(22, GPIO.HIGH) # Green LED 켜기 -> 사람이 감지됐다!
 
-        bbox = bboxs[0]
+        # 모터 제어 및 UI 업데이트
+        # 다양한 if 조건을 통해 사람과 카메라의 상대 거리 및 방향에 따른 모터와 PWM 제어 로직 수행
+        bbox = bboxs[0] # 감지된 첫 번째 경계 상자 정보를 bbox라는 변수에 저장. -> 감지된 객체의 위치와 크기 정보
 
-        center = bbox["center"]
-        x, y, w, h = bbox['bbox']
+        center = bbox["center"] # bbox 딕셔너리에서 "center"에 해당하는 값을 center 변수에 저장함. -> 경계 상자의 중심 좌표
+        x, y, w, h = bbox['bbox']  # x, y 좌표, 폭과 높이
         
-        turn_direc = img_center_x - center[0]
-        distance_scale = img_center_y - center[1]
+        turn_direc = img_center_x - center[0] # 카메라 영상 중심의 x 좌표와 경계 상자의 중심 x 좌표의 차이 계산. -> 회전방향 결정
+        distance_scale = img_center_y - center[1] # 카메라 영상 중심의 y 좌표와 경계 상자의 중심 y 좌표의 차이 계산. -> 거리 조절
 
-        # UI
+        # UI 그리기
         cv2.circle(img, center, 5, (255, 0, 0), cv2.FILLED) # Bbox Center
         cvzone.cornerRect(img, (x, y, w, h), 30, 3, 3, (255,0,255), (255,0,255)) # Bbox
         cv2.line(img, center, (img_center_x, img_center_y), (255 ,0, 255), 2) # Line Bbox -> Center Img
@@ -136,99 +150,102 @@ while True:
         cv2.putText(img, f"Distance :  {distance_scale}", (20, 180), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2)
         cv2.putText(img, f"Turn Offset Value :  {turn_direc}", (20, 80), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2)
 
-        if abs(distance_scale) > DISTANCE_MIN_VALUE:
+        if abs(distance_scale) > DISTANCE_MIN_VALUE: # 감지한 사람과 카트 사이의 거리 절대값이 최소보다 크면 -> 너무 멀거나 너무 가깝다는 뜻
             
-            if distance_scale < 0: # DISTANCE = FAR
+            if distance_scale < 0: # 0보다 작다는 건 경계 상자 중심 y좌표가 크다는 것 -> 거리가 멀다!
 
-                cv2.putText(img, "Action : Far", (20, 200), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2)
+                cv2.putText(img, "Action : Far", (20, 200), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2) # 이미지에 Action : Far 띄워서 정보 알려줌
                 
-                pwm = RangeCalc(abs(distance_scale), DISTANCE_MAX_VALUE, DISTANCE_MIN_VALUE, PWM_SCALE[1], PWM_SCALE[0])
-                cv2.putText(img, f"PWM :  {pwm}", (20, 220), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 255), 2)
+                pwm = RangeCalc(abs(distance_scale), DISTANCE_MAX_VALUE, DISTANCE_MIN_VALUE, PWM_SCALE[1], PWM_SCALE[0]) # pwm 값 계산
+                cv2.putText(img, f"PWM :  {pwm}", (20, 220), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 255), 2) # 이미지에 PWM 값 띄워줌
                 
-                motor1.forward(pwm)
+                motor1.forward(pwm) # 모터 4개 pwm제어를 따라 전진
                 motor2.forward(pwm)
                 motor3.forward(pwm)
                 motor4.forward(pwm)
                 
-            else: # DISTANCE = NEAR
+            else: # 0보다 크거나 같다 -> 거리가 가깝다!
 
-                cv2.putText(img, "Action : Near", (20, 200), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2)
+                cv2.putText(img, "Action : Near", (20, 200), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2) # 가깝다는 정보 알려줌
 
-                pwm = RangeCalc(abs(distance_scale), DISTANCE_MAX_VALUE, DISTANCE_MIN_VALUE, PWM_SCALE[1], PWM_SCALE[0])
-                cv2.putText(img, f"PWM :  {pwm}", (20, 220), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 255), 2)
+                pwm = RangeCalc(abs(distance_scale), DISTANCE_MAX_VALUE, DISTANCE_MIN_VALUE, PWM_SCALE[1], PWM_SCALE[0]) # pwm 값 계산
+                cv2.putText(img, f"PWM :  {pwm}", (20, 220), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 255), 2) # 이미지에 pwm 값 띄워줌
                 
-                motor1.backward(pwm)
+                motor1.backward(pwm) # 모터 4개 pwm 제어를 따라 후진
                 motor2.backward(pwm)
                 motor3.backward(pwm)
                 motor4.backward(pwm)
 
-        else: # MOTOR TURNING / DISTANCE = OPTIMAL
+        else: # 감지한 사람과 카트 사이의 거리 절대값이 최소보다 작거나 같으면 -> 거리가 적당하다는 뜻 -> 이때 회전 시도함.
+            # 그러니까 거리가 너무 가깝거나 멀면 전진 또는 후진을 먼저 해서 거리를 적절하게 만들고 회전을 한다.
 
-            if abs(turn_direc) > TURN_MIN_VALUE:
+            if abs(turn_direc) > TURN_MIN_VALUE: # 회전 방향값의 절대값이 최소 회전 방향보다 크면 -> 사람이 영상 중심에서 벗어났다는 뜻
 
-                if turn_direc < 0:
-                    cv2.putText(img, "Turn Direction : Right", (20, 100), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2)
+                if turn_direc < 0: # turn_direc = img_center_x - center[0]이므로 영상의 x 좌표보다 경계 박스 중심의 x 좌표값이 더 크다. -> 사람은 오른쪽에 있다.
+                    cv2.putText(img, "Turn Direction : Right", (20, 100), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2) # 정보를 화면에 띄워 알려줌
 
-                    pwm = RangeCalc(abs(turn_direc), TURN_MAX_VALUE, TURN_MIN_VALUE, PWM_SCALE[1], PWM_SCALE[0])
-                    cv2.putText(img, f"PWM :  {pwm}", (20, 120), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 255), 2)
+                    pwm = RangeCalc(abs(turn_direc), TURN_MAX_VALUE, TURN_MIN_VALUE, PWM_SCALE[1], PWM_SCALE[0]) # pwm 계산
+                    cv2.putText(img, f"PWM :  {pwm}", (20, 120), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 255), 2) # 이미지에 pwm 값 띄워줌
 
-                    motor1.forward(pwm)
-                    motor2.backward(pwm)
-                    motor3.forward(pwm)
-                    motor4.backward(pwm)
+                    motor1.forward(pwm) # 1, 3번 모터는 전진, 2, 4번 모터는 후진 -> 카트는 오른쪽을 돈다.
+                    motor2.backward(pwm) # 바퀴 순서는
+                    motor3.forward(pwm)  # 1번 바퀴, 2번 바퀴
+                    motor4.backward(pwm) # 3번 바퀴, 4번 바퀴 인가봐.
                 
-                else:
+                else: # 사람이 왼쪽에 있다.
                     cv2.putText(img, "Turn Direction : Left", (20, 100), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2)
 
-                    pwm = RangeCalc(abs(turn_direc), TURN_MAX_VALUE, TURN_MIN_VALUE, PWM_SCALE[1], PWM_SCALE[0])
+                    pwm = RangeCalc(abs(turn_direc), TURN_MAX_VALUE, TURN_MIN_VALUE, PWM_SCALE[1], PWM_SCALE[0]) # pwm 값 계산
                     cv2.putText(img, f"PWM :  {pwm}", (20, 120), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 255), 2)
                     
-                    motor1.backward(pwm)
-                    motor2.forward(pwm)
-                    motor3.backward(pwm)
-                    motor4.forward(pwm)
-            else:
-                        
-                motor1.stop()
+                    motor1.backward(pwm) # 1, 3번 모터는 후진, 2, 4번 모터는 전진 -> 카트는 왼쪽으로 돈다.
+                    motor2.forward(pwm)  # 바퀴 순서
+                    motor3.backward(pwm) # 1번 바퀴, 2번 바퀴
+                    motor4.forward(pwm)  # 3번 바퀴, 4번 바퀴 
+            else: # 회전 방향값의 절대값이 최소 회전 방향보다 작거나 같으면 -> 사람이 영상의 중심에 잘 있다는 뜻. (이 값은 우리가 정하면 됨.)
+                                                                                # -> 얼마나 벗어나야 카트를 회전시킬지는 우리가 정하면 됨
+                                                                                
+                  # 그러니까 거리가 적당하고, 사람이 영상의 중심에 잘 있으면 카트가 움직일 필요가 없다!
+                motor1.stop() # 모터 모두 정지
                 motor2.stop()
                 motor3.stop()
                 motor4.stop()
-    else:
+    else: # 경계 상자가 감지되지 않으면
         
-        GPIO.output(22, GPIO.LOW)
-        motor1.stop()
+        GPIO.output(22, GPIO.LOW) # Green LED 끄기 -> 사람이 감지가 안돼요!
+        motor1.stop() # 모터 모두 정지
         motor2.stop()
         motor3.stop()
         motor4.stop()
 
     
-    cv2.putText(img, f'FPS : {int(fps)}', (20, 40), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 0), 2) # FPS
-    cv2.circle(img, (img_center_x, img_center_y), 5, (255, 0, 0), cv2.FILLED) # Middle Circle
-    cv2.line(img, (0, img_center_y), (width, img_center_y), (0, 255, 0), 1)  # Horizontal line
-    cv2.line(img, (img_center_x, 0), (img_center_x, height), (0, 255, 0), 1) # Vertical line
+    cv2.putText(img, f'FPS : {int(fps)}', (20, 40), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 0), 2) # 설명: fps를 정수로 만들고, 영상의 (20, 40) 위치에 빨간색 문자로 표시.
+    cv2.circle(img, (img_center_x, img_center_y), 5, (255, 0, 0), cv2.FILLED) # 영상 중심에 반지름 5의 빨간색 원을 그려서 화면 중앙 표시.
+    cv2.line(img, (0, img_center_y), (width, img_center_y), (0, 255, 0), 1)  # 영상의의 왼쪽에서 오른쪽 끝까지 녹색 가로선을 그림. -> 영상 중앙 가로선 표시
+    cv2.line(img, (img_center_x, 0), (img_center_x, height), (0, 255, 0), 1) # 영상 위에서 아래 끝까지 녹색의 세로선을 그림. -> 영상 중앙 세로선 표시
     
-    img = cv2.resize(img, (width*2, height*2))
-    #cv2.imshow("Image", img)
+    img = cv2.resize(img, (width*2, height*2)) # 이미지 크기를 가로, 세로 두 배로 확대하여 img에 다시 저장. -> 잘 보이게 하려고
+    #cv2.imshow("Image", img) -> 이거 주석 지우면 출력되는 영상이 두배로 커진다.
 
-    key = cv2.waitKey(1)
-    if key == ord('q'):
-        GPIO.output(17, GPIO.LOW)
-        GPIO.output(22, GPIO.LOW)
+    key = cv2.waitKey(1) # 키 입력을 기다리는데 1밀리초마다 반복
+    if key == ord('q'): # q가 입력되면 
+        GPIO.output(17, GPIO.LOW) # 빨간 LED 꺼지고 -> 카메라 꺼졌다는 뜻
+        GPIO.output(22, GPIO.LOW) # 초록 LED 꺼지고 -> 사람 인식 안된다는 뜻
         
-        motor1.stop()
+        motor1.stop() # 모든 모터 정지
         motor2.stop()
         motor3.stop()
         motor4.stop()
-        break
+        break # 루프 빠져나감
 
-GPIO.output(17, GPIO.LOW)
+GPIO.output(17, GPIO.LOW) # LED 다 꺼
 GPIO.output(22, GPIO.LOW)
-GPIO.cleaup()
+GPIO.cleaup() # GPIO 핀 초기화
 
-motor1.stop()
+motor1.stop() # 모든 모터 정지
 motor2.stop()
 motor3.stop()
 motor4.stop()
 
-cap.release()
-board.exit()
+cap.release() # 카메라 해제
+board.exit() # 아두이노 보드 연결 해제
