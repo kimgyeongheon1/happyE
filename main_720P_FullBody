@@ -33,9 +33,11 @@ class Motor:
 # OpenCV / Board Settings
 cap = cv2.VideoCapture('/dev/video0') # 비디오 캡처 객체 생성, 라즈베리 파이의 기본 카메라 디바이스
 board = Arduino('/dev/ttyACM0') # 아두이노와 직렬 통신 연결, /dev/ttyACM0 포트 사용
+# 이거 우리가 쓰는 포트로 적어줘야 함!!!!
+
 GPIO.setmode(GPIO.BCM) # GPIO 핀 모드 설정, BCM 모드 사용
-# BCM 모드: Broadcom SOC의 채널 번호를 사용 (예: GPIO 17, GPIO 18 등)
-# BOARD 모드: Raspberry Pi 보드 상에서 실제 물리적 핀 번호를 사용 (예: 핀 11, 핀 12 등)
+# BCM 모드: Broadcom SOC의 채널 번호를 사용 (예: GPIO 17, GPIO 18 등) -> 모든 라즈베리파이에서 동일함
+# BOARD 모드: Raspberry Pi 보드 상에서 실제 물리적 핀 번호를 사용 (예: 핀 11, 핀 12 등) -> 라즈베리파이 모델에 따라 다름
 
 cap.set(cv2.CAP_PROP_FPS, 20) # 카메라의 FPS를 20으로 설정
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280) # 카메라의 해상도 너비 설정
@@ -43,9 +45,18 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720) # 카메라의 해상도 높이 설정
 
 detector = PoseDetector(staticMode=False, modelComplexity=0, smoothLandmarks=True, enableSegmentation=False, smoothSegmentation=True, detectionCon=0.5, trackCon=0.5)
 # PoseDetector 초기화: 사람의 자세 인식 및 추적을 위한 매개변수 설정
+
+# staticMode: False -> 동적 모드로 실시간 영상에서 포즈를 추적. True로 설정하면 이미지 한 장만 분석함.
+# modelComplexity -> 모델의 복잡도 수준을 설정, 값이 높을수록 정확하지만 성능은 낮아짐.
+# smoothLandmarks -> 프레임 간의 움직임을 자연스럽게 보정함.
+# enableSegmentation -> 배경 분할을 활성화하여 사람의 실루엣을 분리하는 기능
+# smoothSegmentation -> 분할된 배경의 경계를 부드럽게 보정하여 더 자연스럽게 처리함.
+# detectionCon -> 포즈 탐지의 신뢰도 임계값으로, 낮으면 탐지 실패 가능성이 커짐.
+# trackCon -> 추적의 신뢰도 임계값으로, 낮으면 신뢰도가 낮은 추적도 허용함.
+
 it = util.Iterator(board)
-# Iterator는 board 객체와 관련된 반복 작업을 처리하는 객체를 생성하는 역할
-# board 객체는 Iterator가 반복할 수 있는 데이터나 핀 상태와 같은 정보를 포함하고 있다.
+# Iterator는 반복 작업을 효율적으로 처리하기 위한 객체
+# board는 라즈베리 파이 또는 Arduino와 같은 보드의 GPIO 핀이나 센서 데이터를 포함한 객체
 
 # 모터 핀 번호 설정 (ena는 pwm 제어 핀)
 # 모터 1 ~ 4 까지 있다. => 4륜 구동!
@@ -73,20 +84,22 @@ GPIO.setup(16, GPIO.OUT) # Buzzer 출력 설정 -> 아두이노 시작됐다는 
 # Pixel Values Settings
 pTime = 0 # 이전 시간 저장 변수, FPS 계산에 사용
 
-TURN_MIN_VALUE = 30 # 회전 방향 값 최소
+TURN_MIN_VALUE = 30 # 회전 방향 값 최소, 30cm
 TURN_MAX_VALUE = 160 # 최대
 
 DISTANCE_MIN_VALUE = 30 # 거리 값 최소
 DISTANCE_MAX_VALUE = 120 # 최대
 
-PWM_SCALE = [0.60, 1.00] # PWM 출력 범위
+PWM_SCALE = [0.60, 1.00] # PWM 출력 범위, 듀티 사이클 60%에서 100% 사이로 동작하도록 제한, 100% 이면 모터의 최대 속도임.
+# PWM_SCALE[0] = 0.6, PWM_SCALE[1] = 1인 리스트
+# 이거 카트 무게, rpm, 바퀴 직경 고려해서 정해야 한다!!, 이걸로 속도 조절 가능
 
 motor1 = Motor(board, motor1_ena, motor1_in1, motor1_in2) # 모터 1 인스턴스 생성
 motor2 = Motor(board, motor2_ena, motor2_in1, motor2_in2) # 모터 2 인스턴스 생성
 motor3 = Motor(board, motor3_ena, motor3_in1, motor3_in2) # 모터 3 인스턴스 생성
 motor4 = Motor(board, motor4_ena, motor4_in1, motor4_in2) # 모터 4 인스턴스 생성
 
-def Buzzer():
+def Buzzer(): # 따르릉
     GPIO.output(16, GPIO.HIGH) # Buzzer 켜기
     time.sleep(0.5) # 0.5초 대기
     GPIO.output(16, GPIO.LOW) # Buzzer 끄기
@@ -96,16 +109,33 @@ def Buzzer():
     GPIO.output(16, GPIO.LOW)
 
 def RangeCalc(In, in_max, in_min, out_max, out_min): # PWM값을 계산해주는 함수
-    # mapped_value = (x_clipped - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+    # PWM의 동작 원리
+    # PWM 신호는 일정 주기로 HIGH (1)와 LOW (0)를 반복함. 듀티 사이클은 HIGH 상태의 비율이다.
+    # 100% 듀티 사이클은 항상 HIGH 상태를 유지하는 것이고, 50% 듀티 사이클은 절반은 HIGH, 나머지 절반 동안은 LOW 상태를 유지하는 것. 
+    # 듀티 사이클을 조절하여 출력 전력의 평균을 원하는 만큼 설정할 수 있다.
 
-    x = min(max(In, in_min), in_max) # 입력 값을 최소/최대 범위로 클리핑
-    mapped_value = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min 
-    # 입력 값에 따라 출력 값 범위 내 매핑
+    # In : 입력값
+    # in_max, in_min: 입력 값의 최대 및 최소 허용 범위
+    # out_max, out_min: 출력 값의 최대 및 최소 범위
+
+    x = min(max(In, in_min), in_max) # 입력 값을 최소/최대 범위로 클리핑(최소/최대 범위가 넘어가면 짤라낸다는 뜻)
+    # 입력값과 입력의 최소값 중 더 큰걸 반환하고, 그 값과 입력의 최대값 중 더 작은걸 반환 -> 입력값이 최소/최대 범위 내에 있게 조정
+
+    mapped_value = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min # 입력 값에 따라 출력값 범위 내 매핑
+    # x가 최소일 경우 -> 출력의 최소값 저장
+    # x가 최대일 경우 -> 출력의 최대값 저장
+    # x가 최소와 최대 사이일 경우 -> 출력 범위 내의 값이 저장됨.
+
+    # (x - in_min): 입력 값이 최소 값으로부터 얼마나 떨어져 있는지 계산
+    # * (out_max - out_min): 출력 값 범위로 조정
+    # / (in_max - in_min): 입력 값의 범위를 기준으로 조정하고, In의 값이 변하면 출력 값도 그에 비례해 변화
+    # + out_min: 최종 결과를 출력 범위의 시작점인 out_min만큼 이동하여 출력 범위 내의 값으로 만듬
+
     mapped_value = round(mapped_value, 2) # 소수점 둘째 자리까지 반올림하여 반환
-    return mapped_value
+    return mapped_value # 이 값이 듀티 사이클!!
 
 it.start() # 아두이노의 보드 iterator 시작, 아두이노 핀 값을 읽기 위한 준비
-Buzzer() # Buzzer 함수 호출 -> 시작했다는 뜻!
+Buzzer() # Buzzer 함수 호출 -> Buzzer을 울려 시작했다는 정보를 알려줌!
 
 while True: # 무한 반복
     
@@ -157,6 +187,8 @@ while True: # 무한 반복
                 cv2.putText(img, "Action : Far", (20, 200), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2) # 이미지에 Action : Far 띄워서 정보 알려줌
                 
                 pwm = RangeCalc(abs(distance_scale), DISTANCE_MAX_VALUE, DISTANCE_MIN_VALUE, PWM_SCALE[1], PWM_SCALE[0]) # pwm 값 계산
+                # RangeCalc(In, in_max, in_min, out_max, out_min)
+
                 cv2.putText(img, f"PWM :  {pwm}", (20, 220), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 255), 2) # 이미지에 PWM 값 띄워줌
                 
                 motor1.forward(pwm) # 모터 4개 pwm제어를 따라 전진
