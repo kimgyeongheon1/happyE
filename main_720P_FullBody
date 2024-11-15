@@ -3,7 +3,7 @@ from pyfirmata import Arduino, SERVO, PWM, OUTPUT, util # import는 전부 다 �
 # pip install cvzone opencv-python
 # pip install pyfirmata
 
-import cv2 # pip install opencv-python
+import cv2 # pip install cvzone opencv-python 이거 설치하면 같이 됨
 import cvzone # pip install cvzone opencv-python 이거 설치하면 같이 됨
 import math # 이거랑
 import time # 이거는 패키지 없어도 됨
