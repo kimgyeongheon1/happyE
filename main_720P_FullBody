@@ -1,5 +1,7 @@
 from cvzone.PoseModule import PoseDetector # PoseDetector 모듈에서 cvz.pose~ 불러옴
-from pyfirmata import Arduino, SERVO, PWM, OUTPUT, util # import는 전부 다 쓰는거고, from은 필요한거만 꺼내서 쓰는 거!
+from pyfirmata import Arduino, SERVO, PWM, OUTPUT, util # import는 전부 다 쓰는거고, from은 필요한거만 꺼내서 쓰는 거! SERVO는 필요 없을듯..
+# 아두이노 핀을 다양한 모드로 설정할 수 있다.
+
 # pip install cvzone opencv-python
 # pip install pyfirmata
 
@@ -12,8 +14,10 @@ import RPi.GPIO as GPIO # sudo apt install python3-rpi.gpio 이거는 라즈베�
 class Motor:
     def __init__(self, board, ena_pin, in1_pin, in2_pin):
         self.ena = board.get_pin(f'd:{ena_pin}:p') # 속도 제어용 pwm 핀
-        self.in1 = board.get_pin(f'd:{in1_pin}:o') # 모터의 방향 제어 핀 1
-        self.in2 = board.get_pin(f'd:{in2_pin}:o') # 모터의 방향 제어 핀 2
+        self.in1 = board.get_pin(f'd:{in1_pin}:o') # 모터의 방향 제어 핀 1 -> 바퀴가 앞으로 굴러가게 함
+        self.in2 = board.get_pin(f'd:{in2_pin}:o') # 모터의 방향 제어 핀 2 -> 바퀴가 뒤로 굴러가게 함
+
+        # board = Arduino('/dev/ttyACM0')로 연결했으니까 board.get_pin은 아두이노의 핀 설정이다.
         
     def forward(self, speed): # 전진 
         self.in1.write(1) # in1 핀을 HIGH로 설정 (모터 전진 방향 설정)
@@ -33,7 +37,9 @@ class Motor:
 # OpenCV / Board Settings
 cap = cv2.VideoCapture('/dev/video0') # 비디오 캡처 객체 생성, 라즈베리 파이의 기본 카메라 디바이스
 board = Arduino('/dev/ttyACM0') # 아두이노와 직렬 통신 연결, /dev/ttyACM0 포트 사용
-# 이거 우리가 쓰는 포트로 적어줘야 함!!!!
+# !!!! board = pyfirmata.Arduino('/dev/ttyACM0') !!!! -->> 만약 안되면 이렇게 바꿔보기
+# 근데 아마 될거 같은데.. from pyfirmata import Arduino, SERVO, PWM, OUTPUT, util 이렇게 참조했으니까.. 그래도 혹시 모름
+# /dev/ttyACM0 -> 이거 우리가 쓰는 포트로 적어줘야 함!!!!
 
 GPIO.setmode(GPIO.BCM) # GPIO 핀 모드 설정, BCM 모드 사용
 # BCM 모드: Broadcom SOC의 채널 번호를 사용 (예: GPIO 17, GPIO 18 등) -> 모든 라즈베리파이에서 동일함
@@ -94,7 +100,7 @@ PWM_SCALE = [0.60, 1.00] # PWM 출력 범위, 듀티 사이클 60%에서 100% �
 # PWM_SCALE[0] = 0.6, PWM_SCALE[1] = 1인 리스트
 # 이거 카트 무게, rpm, 바퀴 직경 고려해서 정해야 한다!!, 이걸로 속도 조절 가능
 
-motor1 = Motor(board, motor1_ena, motor1_in1, motor1_in2) # 모터 1 인스턴스 생성
+motor1 = Motor(board, motor1_ena, motor1_in1, motor1_in2) # 모터 1 인스턴스 생성, (ena : pwm 핀, in1 : 바퀴 앞으로 굴러감, in2 : 바퀴 뒤로 굴러감)
 motor2 = Motor(board, motor2_ena, motor2_in1, motor2_in2) # 모터 2 인스턴스 생성
 motor3 = Motor(board, motor3_ena, motor3_in1, motor3_in2) # 모터 3 인스턴스 생성
 motor4 = Motor(board, motor4_ena, motor4_in1, motor4_in2) # 모터 4 인스턴스 생성
