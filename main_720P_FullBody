@@ -1,6 +1,6 @@
 from cvzone.PoseModule import PoseDetector # PoseDetector 모듈에서 cvz.pose~ 불러옴
-from pyfirmata import Arduino, SERVO, PWM, OUTPUT, util # import는 전부 다 쓰는거고, from은 필요한거만 꺼내서 쓰는 거! SERVO는 필요 없을듯..
-# 아두이노 핀을 다양한 모드로 설정할 수 있다.
+from pyfirmata import Arduino, SERVO, PWM, OUTPUT, util # import는 전부 다 쓰는거고, from은 필요한거만 꺼내서 쓰는 거! SERVO도 필요한가??
+# 아두이노 핀을 다양한 모드(SERVO, PWM, OUTPUT, util)로 설정할 수 있다.
 
 # pip install cvzone opencv-python
 # pip install pyfirmata
@@ -9,17 +9,33 @@ import cv2 # pip install cvzone opencv-python 이거 설치하면 같이 됨
 import cvzone # pip install cvzone opencv-python 이거 설치하면 같이 됨
 import math # 이거랑
 import time # 이거는 패키지 없어도 됨
-import RPi.GPIO as GPIO # sudo apt install python3-rpi.gpio 이거는 라즈베리파이에서만 설치할 수 있다.
+import RPi.GPIO as GPIO 
+"""
+sudo apt install python3-rpi.gpio 이거는 라즈베리파이에서만 설치할 수 있다.
+그런데 라즈베리파이에서는 GPIO 핀 안쓸건데 이게 필요한가??
+나중에 초음파 센서를 라즈베리파이에 연결한다면 필요할거 같고, 아두이노에 연결한다면 필요 없을 거 같다.
+"""
 
 class Motor:
     def __init__(self, board, ena_pin, in1_pin, in2_pin):
         self.ena = board.get_pin(f'd:{ena_pin}:p') # 속도 제어용 pwm 핀
         self.in1 = board.get_pin(f'd:{in1_pin}:o') # 모터의 방향 제어 핀 1 -> 바퀴가 앞으로 굴러가게 함
         self.in2 = board.get_pin(f'd:{in2_pin}:o') # 모터의 방향 제어 핀 2 -> 바퀴가 뒤로 굴러가게 함
+        # d는 디지털 핀, p는 pwm 모드, o는 출력 모드.
 
-        # board = Arduino('/dev/ttyACM0')로 연결했으니까 board.get_pin은 아두이노의 핀 설정이다.
+        # BTS7960 PIN 연결
+        # 보통 모터 1개의 양방향 제어를 위해서는 3개의 신호선이 필요하지만 우리가 쓰는 모터 드라이버는 4개를 사용한다.
+        # (L_EN) : Left turn Enable ( HIGH를  주면 좌회전 Enable ) 
+        # (R_EN) : Right turn Enable ( HIGH를 주면 우회전 Enable )
+        # (LPWM) : Left turn PWM ( 좌회전 세기를 PWM 방식으로 제어 )
+        # (RPWM) : Right turn PWM ( 우회전 세기를 PWM 방식으로 제어 )
+
+        # -->> 좌회전을 전진 방향으로 설정하면 L_EN : 1, R_EN : 0, LPWM : speed, RPWM : 0 주면 됨.
+        # 이건 모터 돌아가는 방향 보고 정하면 된다.
+
+        # board = Arduino('/dev/ttyACM0')로 연결했으니까 board.get_pin은 라즈베리파이가 아니라 아두이노의 핀 설정이다.
         
-    def forward(self, speed): # 전진 
+    def forward(self, speed): # 전진, speed는 나중에 pwm 값을 받음.
         self.in1.write(1) # in1 핀을 HIGH로 설정 (모터 전진 방향 설정)
         self.in2.write(0) # in2 핀을 LOW로 설정 (모터 전진 방향 설정)
         self.ena.write(speed) # 모터 속도를 설정 (PWM 신호)
@@ -33,6 +49,8 @@ class Motor:
         self.in1.write(0) # in1 핀을 LOW로 설정 (모터 멈춤)
         self.in2.write(0) # in2 핀을 LOW로 설정 (모터 멈춤)
         self.ena.write(0) # 모터 속도를 0으로 설정 (모터 멈춤)
+
+        # .write는 pyFirmata 라이브러리에서 제공하는 메서드로, 핀에 값을 출력하거나 신호를 보낼 때 사용함.
 
 # OpenCV / Board Settings
 cap = cv2.VideoCapture('/dev/video0') # 비디오 캡처 객체 생성, 라즈베리 파이의 기본 카메라 디바이스
@@ -64,8 +82,9 @@ it = util.Iterator(board)
 # Iterator는 반복 작업을 효율적으로 처리하기 위한 객체
 # board는 라즈베리 파이 또는 Arduino와 같은 보드의 GPIO 핀이나 센서 데이터를 포함한 객체
 
-# 모터 핀 번호 설정 (ena는 pwm 제어 핀)
+# 모터 핀 번호 설정 (ena는 pwm 제어 핀, in1은 바퀴가 앞으로 굴러가게 하고, in2는 바퀴가 뒤로 굴러가게 함)
 # 모터 1 ~ 4 까지 있다. => 4륜 구동!
+# pwm 제어 핀은 아두이노 핀 번호 잘 보고 연결해야 함. pwm이 지원되는 번호가 정해져 있다!
 motor1_ena = 3
 motor1_in1 = 2
 motor1_in2 = 4
@@ -86,6 +105,11 @@ GPIO.setup(17, GPIO.OUT) # Red LED 출력 설정 -> 카메라 동작하고 있�
 GPIO.setup(27, GPIO.OUT) # Yellow LED 출력 설정 -> 이건 왜 있는 거지???
 GPIO.setup(22, GPIO.OUT) # Green LED 출력 설정 -> 사람이 감지되고 있다는 뜻
 GPIO.setup(16, GPIO.OUT) # Buzzer 출력 설정 -> 아두이노 시작됐다는 것을 알려줌
+# .setup : GPIO 핀의 동작 모드를 설정하는 함수, 핀을 입력 모드(GPIO.IN) 또는 출력 모드(GPIO.OUT)로 설정
+# 출력 모드로 설정하면 해당 핀에서 HIGH(1) 또는 LOW(0)의 신호를 출력할 수 있다.
+# 아까 bcm 모드로 설정했으므로 라즈베리파이의 17번 핀이 아닌, 11번 핀(GPIO 17)에 연결해야 한다. 나머지도 마찬가지.
+
+# 근데 이거 LED 안쓸거면 없어도 되는 코드같은데.. 우리 안쓰지 않나??
 
 # Pixel Values Settings
 pTime = 0 # 이전 시간 저장 변수, FPS 계산에 사용
@@ -113,6 +137,8 @@ def Buzzer(): # 따르릉
     GPIO.output(16, GPIO.HIGH)
     time.sleep(0.5)
     GPIO.output(16, GPIO.LOW)
+
+    # 이거도 Buzzer 안쓰면 없어도 되는데..., 우리 Buzzer 안쓰지 않나??
 
 def RangeCalc(In, in_max, in_min, out_max, out_min): # PWM값을 계산해주는 함수
     # PWM의 동작 원리
