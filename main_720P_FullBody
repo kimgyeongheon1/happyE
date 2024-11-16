@@ -119,7 +119,7 @@ GPIO.setup(16, GPIO.OUT) # Buzzer 출력 설정 -> 아두이노 시작됐다는 
 # Pixel Values Settings
 pTime = 0 # 이전 시간 저장 변수, FPS 계산에 사용
 
-TURN_MIN_VALUE = 30 # 회전 방향 값 최소, 30cm
+TURN_MIN_VALUE = 30 # 회전 방향 값 최소, cm가 아님!! 이 코드에서는 화면 중심 좌표랑 경계 상자 중심 좌표의 거리 차이를 봄. 실제 거리가 아님!!
 TURN_MAX_VALUE = 160 # 최대
 
 DISTANCE_MIN_VALUE = 30 # 거리 값 최소
