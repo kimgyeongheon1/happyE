@@ -34,7 +34,16 @@ class Motor: # BTS7960 모터 드라이버에 핀 4개 사용하도록 변경
 
 # OpenCV / Board Settings
 cap = cv2.VideoCapture('/dev/video0')
-board = Arduino('/dev/ttyACM0')
+
+# 아두이노와 직렬 통신 연결, /dev/ttyACM0 포트 사용(리눅스 환경에서 사용하는 직렬 포트 경로)
+# 오류 발생시 코드 종료
+# 오류의 세부 정보는 Exception 객체(e)로 전달됨
+# e는 오류의 종류와 메시지를 포함하며, 이를 출력하여 문제 원인을 확인할 수 있다.
+try:
+    board = Arduino('/dev/ttyACM0')
+except Exception as e:
+    print(f"아두이노 연결 실패: {e}")
+    exit(1)
 
 # GPIO.setmode(GPIO.BCM)
 
