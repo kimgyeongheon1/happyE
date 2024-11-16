@@ -1,4 +1,5 @@
 from cvzone.PoseModule import PoseDetector # PoseDetector 모듈에서 cvz.pose~ 불러옴
+# pip install mediapipe
 from pyfirmata import Arduino, SERVO, PWM, OUTPUT, util # import는 전부 다 쓰는거고, from은 필요한거만 꺼내서 쓰는 거! SERVO도 필요한가??
 # 아두이노 핀을 다양한 모드(SERVO, PWM, OUTPUT, util)로 설정할 수 있다.
 
@@ -57,7 +58,11 @@ cap = cv2.VideoCapture('/dev/video0') # 비디오 캡처 객체 생성, 라즈�
 board = Arduino('/dev/ttyACM0') # 아두이노와 직렬 통신 연결, /dev/ttyACM0 포트 사용
 # !!!! board = pyfirmata.Arduino('/dev/ttyACM0') !!!! -->> 만약 안되면 이렇게 바꿔보기
 # 근데 아마 될거 같은데.. from pyfirmata import Arduino, SERVO, PWM, OUTPUT, util 이렇게 참조했으니까.. 그래도 혹시 모름
-# /dev/ttyACM0 -> 이거 우리가 쓰는 포트로 적어줘야 함!!!!
+# /dev/ttyACM0 -> 이거 우리가 쓰는 포트로 적어줘야 함!!!!, 아두이노 포트 번호 보고 연결.
+
+# 이 형식은 리눅스 포트 연결, 윈도우에서 할거면 다르게 적어줘야 함!
+# 윈도우에서 실행 -> cap = cv2.VideoCapture(0)
+# 윈도우에서 실행 -> board = Arduino(COM1)
 
 GPIO.setmode(GPIO.BCM) # GPIO 핀 모드 설정, BCM 모드 사용
 # BCM 모드: Broadcom SOC의 채널 번호를 사용 (예: GPIO 17, GPIO 18 등) -> 모든 라즈베리파이에서 동일함
@@ -198,7 +203,7 @@ while True: # 무한 반복
         # 다양한 if 조건을 통해 사람과 카메라의 상대 거리 및 방향에 따른 모터와 PWM 제어 로직 수행
         bbox = bboxs[0] # 감지된 첫 번째 경계 상자 정보를 bbox라는 변수에 저장. -> 감지된 객체의 위치와 크기 정보
 
-        center = bbox["center"] # bbox 딕셔너리에서 "center"에 해당하는 값을 center 변수에 저장함. -> 경계 상자의 중심 좌표
+        center = bbox["center"] # bbox 리스트에서 "center"에 해당하는 값을 center 변수에 저장함. -> 경계 상자의 중심 좌표
         x, y, w, h = bbox['bbox']  # x, y 좌표, 폭과 높이
         
         turn_direc = img_center_x - center[0] # 카메라 영상 중심의 x 좌표와 경계 상자의 중심 x 좌표의 차이 계산. -> 회전방향 결정
