@@ -37,6 +37,7 @@ cap = cv2.VideoCapture('/dev/video0')
 board = Arduino('/dev/ttyACM0')
 
 # GPIO.setmode(GPIO.BCM)
+
 cap.set(cv2.CAP_PROP_FPS, 20)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
