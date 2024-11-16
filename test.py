@@ -45,6 +45,9 @@ except Exception as e:
     print(f"아두이노 연결 실패: {e}")
     exit(1)
 
+# 윈도우에서 실행 -> cap = cv2.VideoCapture(0)
+# 윈도우에서 실행 -> board = Arduino(COM1)
+
 # GPIO.setmode(GPIO.BCM)
 
 cap.set(cv2.CAP_PROP_FPS, 20)
