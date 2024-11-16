@@ -35,8 +35,8 @@ class Motor: # BTS7960 모터 드라이버에 핀 4개 사용하도록 변경
 # OpenCV / Board Settings
 cap = cv2.VideoCapture('/dev/video0')
 board = Arduino('/dev/ttyACM0')
-# GPIO.setmode(GPIO.BCM)
 
+# GPIO.setmode(GPIO.BCM)
 cap.set(cv2.CAP_PROP_FPS, 20)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
@@ -149,7 +149,6 @@ while True:
                 pwm = RangeCalc(abs(distance_scale), DISTANCE_MAX_VALUE, DISTANCE_MIN_VALUE, PWM_SCALE[1], PWM_SCALE[0])
                 cv2.putText(img, f"PWM :  {pwm}", (20, 220), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 255), 2)
                 
-                # 모터 두개로 변경
                 motor1.forward(pwm)
                 motor2.forward(pwm)
                 
@@ -160,7 +159,6 @@ while True:
                 pwm = RangeCalc(abs(distance_scale), DISTANCE_MAX_VALUE, DISTANCE_MIN_VALUE, PWM_SCALE[1], PWM_SCALE[0])
                 cv2.putText(img, f"PWM :  {pwm}", (20, 220), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 255), 2)
                 
-                # 모터 두개로 변경
                 motor1.backward(pwm)
                 motor2.backward(pwm)
 
@@ -174,7 +172,6 @@ while True:
                     pwm = RangeCalc(abs(turn_direc), TURN_MAX_VALUE, TURN_MIN_VALUE, PWM_SCALE[1], PWM_SCALE[0])
                     cv2.putText(img, f"PWM :  {pwm}", (20, 120), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 255), 2)
 
-                    # 모터 두개로 변경
                     motor1.forward(pwm)
                     motor2.backward(pwm)
                     # 바퀴 순서는 1번바퀴(왼쪽), 2번바퀴(오른쪽) -> 1번바퀴 ||| 몸통 ||| 2번바퀴
@@ -189,8 +186,7 @@ while True:
                     motor1.backward(pwm)
                     motor2.forward(pwm)
             else:
-
-                # 모터 두개로 변경        
+      
                 motor1.stop()
                 motor2.stop()
     else:
